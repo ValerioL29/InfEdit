@@ -16,20 +16,20 @@ class ScoreParams:
             return self.mismatch
         else:
             return self.match
-        
-    
-def get_matrix(size_x, size_y, gap):
-    matrix = []
-    for i in range(len(size_x) + 1):
-        sub_matrix = []
-        for j in range(len(size_y) + 1):
-            sub_matrix.append(0)
-        matrix.append(sub_matrix)
-    for j in range(1, len(size_y) + 1):
-        matrix[0][j] = j*gap
-    for i in range(1, len(size_x) + 1):
-        matrix[i][0] = i*gap
-    return matrix
+
+
+# def get_matrix(size_x, size_y, gap):
+#     matrix = []
+#     for i in range(len(size_x) + 1):
+#         sub_matrix = []
+#         for j in range(len(size_y) + 1):
+#             sub_matrix.append(0)
+#         matrix.append(sub_matrix)
+#     for j in range(1, len(size_y) + 1):
+#         matrix[0][j] = j * gap
+#     for i in range(1, len(size_x) + 1):
+#         matrix[i][0] = i * gap
+#     return matrix
 
 
 def get_matrix(size_x, size_y, gap):
@@ -40,7 +40,7 @@ def get_matrix(size_x, size_y, gap):
 
 
 def get_traceback_matrix(size_x, size_y):
-    matrix = np.zeros((size_x + 1, size_y +1), dtype=np.int32)
+    matrix = np.zeros((size_x + 1, size_y + 1), dtype=np.int32)
     matrix[0, 1:] = 1
     matrix[1:, 0] = 2
     matrix[0, 0] = 4
@@ -73,20 +73,20 @@ def get_aligned_sequences(x, y, trace_back):
     mapper_y_to_x = []
     while i > 0 or j > 0:
         if trace_back[i, j] == 3:
-            x_seq.append(x[i-1])
-            y_seq.append(y[j-1])
-            i = i-1
-            j = j-1
+            x_seq.append(x[i - 1])
+            y_seq.append(y[j - 1])
+            i = i - 1
+            j = j - 1
             mapper_y_to_x.append((j, i))
         elif trace_back[i][j] == 1:
             x_seq.append('-')
-            y_seq.append(y[j-1])
-            j = j-1
+            y_seq.append(y[j - 1])
+            j = j - 1
             mapper_y_to_x.append((j, -1))
         elif trace_back[i][j] == 2:
-            x_seq.append(x[i-1])
+            x_seq.append(x[i - 1])
             y_seq.append('-')
-            i = i-1
+            i = i - 1
         elif trace_back[i][j] == 4:
             break
     mapper_y_to_x.reverse()
@@ -94,10 +94,10 @@ def get_aligned_sequences(x, y, trace_back):
 
 
 def get_mapper(x: str, y: str, specifier, tokenizer, encoder, device, max_len=77):
-    locol_prompt, mutual_prompt = specifier
+    local_prompt, mutual_prompt = specifier
     x_seq = tokenizer.encode(x)
     y_seq = tokenizer.encode(y)
-    e_seq = tokenizer.encode(locol_prompt)
+    e_seq = tokenizer.encode(local_prompt)
     m_seq = tokenizer.encode(mutual_prompt)
     score = ScoreParams(0, 1, -1)
     matrix, trace_back = global_align(x_seq, y_seq, score)
@@ -110,27 +110,26 @@ def get_mapper(x: str, y: str, specifier, tokenizer, encoder, device, max_len=77
     m = copy.deepcopy(alphas)
     alpha_e = torch.zeros_like(alphas)
     alpha_m = torch.zeros_like(alphas)
-    
 
     x = tokenizer(
-            x,
-            padding="max_length",
-            max_length=max_len,
-            truncation=True,
-            return_tensors="pt",
-        ).input_ids.to(device)
+        x,
+        padding="max_length",
+        max_length=max_len,
+        truncation=True,
+        return_tensors="pt",
+    ).input_ids.to(device)
     y = tokenizer(
-            y,
-            padding="max_length",
-            max_length=max_len,
-            truncation=True,
-            return_tensors="pt",
-        ).input_ids.to(device)
+        y,
+        padding="max_length",
+        max_length=max_len,
+        truncation=True,
+        return_tensors="pt",
+    ).input_ids.to(device)
 
     x_latent = encoder(x)[0].squeeze(0)
     y_latent = encoder(y)[0].squeeze(0)
     i = 0
-    while i<len(y_seq):
+    while i < len(y_seq):
         start = None
         if alphas[i] == 0:
             start = i
@@ -140,7 +139,7 @@ def get_mapper(x: str, y: str, specifier, tokenizer, encoder, device, max_len=77
             max_s = None
             max_t = None
             for i_target in range(start, i):
-                for i_source in range(mapper[start-1]+1, mapper[i]):
+                for i_source in range(mapper[start - 1] + 1, mapper[i]):
                     sim = F.cosine_similarity(x_latent[i_target], y_latent[i_source], dim=0)
                     if sim > max_sim:
                         max_sim = sim
@@ -150,21 +149,19 @@ def get_mapper(x: str, y: str, specifier, tokenizer, encoder, device, max_len=77
                 mapper[max_t] = max_s
                 alphas[max_t] = 1
                 for t in e_seq:
-                  if x_seq[max_s] == t:
-                    alpha_e[max_t] = 1
+                    if x_seq[max_s] == t:
+                        alpha_e[max_t] = 1
         i += 1
-        
-    
+
     i = 1
     j = 1
-    while (i < len(y_seq)-1) and (j < len(e_seq)-1):
+    while (i < len(y_seq) - 1) and (j < len(e_seq) - 1):
         found = True
         while e_seq[j] != y_seq[i]:
             i = i + 1
-            if i >= len(y_seq)-1:
+            if i >= len(y_seq) - 1:
                 print("blend word not found!")
                 found = False
-                break
                 raise ValueError("local prompt not found in target prompt")
         if found:
             alpha_e[i] = 1
@@ -172,14 +169,14 @@ def get_mapper(x: str, y: str, specifier, tokenizer, encoder, device, max_len=77
 
     i = 1
     j = 1
-    while (i < len(y_seq)-1) and (j < len(m_seq)-1):
-      while m_seq[j] != y_seq[i]:
-        i = i + 1
-      if m_seq[j] == x_seq[mapper[i]]:
-        alpha_m[i] = 1
-        j = j + 1
-      else:
-        raise ValueError("mutual prompt not found in target prompt")
+    while (i < len(y_seq) - 1) and (j < len(m_seq) - 1):
+        while m_seq[j] != y_seq[i]:
+            i = i + 1
+        if m_seq[j] == x_seq[mapper[i]]:
+            alpha_m[i] = 1
+            j = j + 1
+        else:
+            raise ValueError("mutual prompt not found in target prompt")
 
     return mapper, alphas, m, alpha_e, alpha_m
 
@@ -188,49 +185,49 @@ def get_refinement_mapper(prompts, specifiers, tokenizer, encoder, device, max_l
     x_seq = prompts[0]
     mappers, alphas, ms, alpha_objs, alpha_descs = [], [], [], [], []
     for i in range(1, len(prompts)):
-        mapper, alpha, m, alpha_obj, alpha_desc = get_mapper(x_seq, prompts[i], specifiers[i-1], tokenizer, encoder, device, max_len)
+        mapper, alpha, m, alpha_obj, alpha_desc = get_mapper(x_seq, prompts[i], specifiers[i - 1], tokenizer, encoder,
+                                                             device, max_len)
         mappers.append(mapper)
         alphas.append(alpha)
         ms.append(m)
         alpha_objs.append(alpha_obj)
         alpha_descs.append(alpha_desc)
-    return torch.stack(mappers), torch.stack(alphas), torch.stack(ms),  torch.stack(alpha_objs), torch.stack(alpha_descs)
+    return torch.stack(mappers), torch.stack(alphas), torch.stack(ms), torch.stack(alpha_objs), torch.stack(alpha_descs)
 
 
-def get_replace_inds(x_seq,y_seq,source_replace_seq,target_replace_seq):
-    replace_mapper=[]
-    replace_alpha=[]
-    source_found=False
-    source_match,target_match=[],[]
+def get_replace_inds(x_seq, y_seq, source_replace_seq, target_replace_seq):
+    replace_mapper = []
+    replace_alpha = []
+    source_found = False
+    source_match, target_match = [], []
     for j in range(len(x_seq)):
-        found=True
-        for i in range(1,len(source_replace_seq)-1):
-            if x_seq[j+i-1]!=source_replace_seq[i]:
-                found=False
+        found = True
+        for i in range(1, len(source_replace_seq) - 1):
+            if x_seq[j + i - 1] != source_replace_seq[i]:
+                found = False
                 break
         if found:
-            source_found=True
-            for i in range(1,len(source_replace_seq)-1): 
-                source_match.append(j+i-1)
+            source_found = True
+            for i in range(1, len(source_replace_seq) - 1):
+                source_match.append(j + i - 1)
     for j in range(len(y_seq)):
-        found=True
-        for i in range(1,len(target_replace_seq)-1):
-            if y_seq[j+i-1]!=target_replace_seq[i]:
-                found=False
+        found = True
+        for i in range(1, len(target_replace_seq) - 1):
+            if y_seq[j + i - 1] != target_replace_seq[i]:
+                found = False
                 break
         if found:
-            for i in range(1,len(source_replace_seq)-1): 
-                target_match.append(j+i-1)
+            for i in range(1, len(source_replace_seq) - 1):
+                target_match.append(j + i - 1)
     if not source_found:
         raise ValueError("replacing object not found in prompt")
-    if (len(source_match)!=len(target_match)):
+    if len(source_match) != len(target_match):
         raise ValueError(f"the replacement word number doesn't match for word {i}!")
-    replace_alpha+=source_match
-    replace_mapper+=target_match
-    return replace_alpha,replace_mapper
-    
-    
-    
+    replace_alpha += source_match
+    replace_mapper += target_match
+    return replace_alpha, replace_mapper
+
+
 def get_word_inds(text: str, word_place: int, tokenizer):
     split_text = text.split(" ")
     if type(word_place) is str:
@@ -288,7 +285,6 @@ def get_replacement_mapper_(x: str, y: str, tokenizer, max_len=77):
     return torch.from_numpy(mapper).float()
 
 
-
 def get_replacement_mapper(prompts, tokenizer, max_len=77):
     x_seq = prompts[0]
     mappers = []
@@ -296,4 +292,3 @@ def get_replacement_mapper(prompts, tokenizer, max_len=77):
         mapper = get_replacement_mapper_(x_seq, prompts[i], tokenizer, max_len)
         mappers.append(mapper)
     return torch.stack(mappers)
-

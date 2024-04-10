@@ -78,7 +78,7 @@ class LocalBlend:
         maps = torch.cat(maps, dim=1)
         maps_s = maps[0, :]
         maps_m = maps[1, :]
-        thresh_e = temperature / alpha_prod ** (0.5)
+        thresh_e = temperature / alpha_prod ** 0.5
         if thresh_e < self.thresh_e:
             thresh_e = self.thresh_e
         thresh_m = self.thresh_m
@@ -232,7 +232,7 @@ class AttentionControlEdit(AttentionStore, abc.ABC):
 
     def self_attn_forward(self, q, k, v, num_heads):
         if q.shape[0] // num_heads == 3:
-            if (self.self_replace_steps <= ((self.cur_step + self.start_steps + 1) * 1.0 / self.num_steps)):
+            if self.self_replace_steps <= ((self.cur_step + self.start_steps + 1) * 1.0 / self.num_steps):
                 q = torch.cat([q[:num_heads * 2], q[num_heads:num_heads * 2]])
                 k = torch.cat([k[:num_heads * 2], k[:num_heads]])
                 v = torch.cat([v[:num_heads * 2], v[:num_heads]])
@@ -245,7 +245,7 @@ class AttentionControlEdit(AttentionStore, abc.ABC):
             qu, qc = q.chunk(2)
             ku, kc = k.chunk(2)
             vu, vc = v.chunk(2)
-            if (self.self_replace_steps <= ((self.cur_step + self.start_steps + 1) * 1.0 / self.num_steps)):
+            if self.self_replace_steps <= ((self.cur_step + self.start_steps + 1) * 1.0 / self.num_steps):
                 qu = torch.cat([qu[:num_heads * 2], qu[num_heads:num_heads * 2]])
                 qc = torch.cat([qc[:num_heads * 2], qc[num_heads:num_heads * 2]])
                 ku = torch.cat([ku[:num_heads * 2], ku[:num_heads]])

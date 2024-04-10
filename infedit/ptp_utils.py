@@ -12,12 +12,14 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from typing import Optional, Union, Tuple, Dict
+
 import numpy as np
 import torch
-from typing import Optional, Union, Tuple, Dict
 from PIL import Image
 
-def save_images(images,dest, num_rows=1, offset_ratio=0.02):
+
+def save_images(images, dest, num_rows=1, offset_ratio=0.02):
     if type(images) is list:
         num_empty = len(images) % num_rows
     elif images.ndim == 4:
@@ -31,25 +33,26 @@ def save_images(images,dest, num_rows=1, offset_ratio=0.02):
     # display(pil_img)
 
 
-def save_image(images,dest, num_rows=1, offset_ratio=0.02):
+def save_image(images, dest, num_rows=1, offset_ratio=0.02):
     print(images.shape)
     pil_img = Image.fromarray(images[0])
     pil_img.save(dest)
 
+
 def register_attention_control(model, controller):
-    class AttnProcessor():
-        def __init__(self,place_in_unet):
+    class AttnProcessor:
+        def __init__(self, place_in_unet):
             self.place_in_unet = place_in_unet
 
         def __call__(self,
-            attn,
-            hidden_states,
-            encoder_hidden_states=None,
-            attention_mask=None,
-            temb=None,
-            scale=1.0,):
+                     attn,
+                     hidden_states,
+                     encoder_hidden_states=None,
+                     attention_mask=None,
+                     temb=None,
+                     scale=1.0, ):
             # The `Attention` class can call different attention processors / attention functions
-    
+
             residual = hidden_states
 
             if attn.spatial_norm is not None:
@@ -81,16 +84,16 @@ def register_attention_control(model, controller):
             v = attn.head_to_batch_dim(v)
 
             if not is_cross:
-                q,k,v = controller.self_attn_forward(q, k, v, attn.heads)
+                q, k, v = controller.self_attn_forward(q, k, v, attn.heads)
 
             attention_probs = attn.get_attention_scores(q, k, attention_mask)
             if is_cross:
-                attention_probs  = controller(attention_probs , is_cross, self.place_in_unet)
+                attention_probs = controller(attention_probs, is_cross, self.place_in_unet)
             hidden_states = torch.bmm(attention_probs, v)
             hidden_states = attn.batch_to_head_dim(hidden_states)
 
             # linear proj   
-            hidden_states = attn.to_out[0](hidden_states, scale=scale)
+            hidden_states = attn.to_out[0](hidden_states)  # scale=scale
             # dropout
             hidden_states = attn.to_out[1](hidden_states)
 
@@ -104,13 +107,12 @@ def register_attention_control(model, controller):
 
             return hidden_states
 
-
     def register_recr(net_, count, place_in_unet):
         for idx, m in enumerate(net_.modules()):
             # print(m.__class__.__name__)
             if m.__class__.__name__ == "Attention":
-                count+=1
-                m.processor = AttnProcessor( place_in_unet)
+                count += 1
+                m.processor = AttnProcessor(place_in_unet)
         return count
 
     cross_att_count = 0
@@ -124,7 +126,7 @@ def register_attention_control(model, controller):
             cross_att_count += register_recr(net[1], 0, "mid")
     controller.num_att_layers = cross_att_count
 
-    
+
 def get_word_inds(text: str, word_place: int, tokenizer):
     split_text = text.split(" ")
     if type(word_place) is str:
@@ -146,7 +148,8 @@ def get_word_inds(text: str, word_place: int, tokenizer):
     return np.array(out)
 
 
-def update_alpha_time_word(alpha, bounds: Union[float, Tuple[float, float]], prompt_ind: int, word_inds: Optional[torch.Tensor]=None):
+def update_alpha_time_word(alpha, bounds: Union[float, Tuple[float, float]], prompt_ind: int,
+                           word_inds: Optional[torch.Tensor] = None):
     if type(bounds) is float:
         bounds = 0, bounds
     start, end = int(bounds[0] * alpha.shape[0]), int(bounds[1] * alpha.shape[0])
@@ -158,7 +161,8 @@ def update_alpha_time_word(alpha, bounds: Union[float, Tuple[float, float]], pro
     return alpha
 
 
-def get_time_words_attention_alpha(prompts, num_steps, cross_replace_steps: Union[float, Tuple[float, float], Dict[str, Tuple[float, float]]],
+def get_time_words_attention_alpha(prompts, num_steps, cross_replace_steps: Union[
+    float, Tuple[float, float], Dict[str, Tuple[float, float]]],
                                    tokenizer, max_num_words=77):
     if type(cross_replace_steps) is not dict:
         cross_replace_steps = {"default_": cross_replace_steps}
@@ -170,9 +174,10 @@ def get_time_words_attention_alpha(prompts, num_steps, cross_replace_steps: Unio
                                                   i)
     for key, item in cross_replace_steps.items():
         if key != "default_":
-             inds = [get_word_inds(prompts[i], key, tokenizer) for i in range(1, len(prompts))]
-             for i, ind in enumerate(inds):
-                 if len(ind) > 0:
+            inds = [get_word_inds(prompts[i], key, tokenizer) for i in range(1, len(prompts))]
+            for i, ind in enumerate(inds):
+                if len(ind) > 0:
                     alpha_time_words = update_alpha_time_word(alpha_time_words, item, i, ind)
-    alpha_time_words = alpha_time_words.reshape(num_steps + 1, len(prompts) - 1, 1, 1, max_num_words) # time, batch, heads, pixels, words
+    alpha_time_words = alpha_time_words.reshape(num_steps + 1, len(prompts) - 1, 1, 1,
+                                                max_num_words)  # time, batch, heads, pixels, words
     return alpha_time_words

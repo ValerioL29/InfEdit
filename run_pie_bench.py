@@ -1,16 +1,13 @@
 from diffusers import LCMScheduler
-from pipeline_ead import EditPipeline
+from infedit.pipeline_ead import EditPipeline
 import os
-import gradio as gr
 import torch
 from PIL import Image
 import torch.nn.functional as nnf
-from typing import Optional, Union, Tuple, List, Callable, Dict
+from typing import Optional, Union, Tuple, List, Dict
 import abc
-import ptp_utils
-import utils
 import numpy as np
-import seq_aligner
+from infedit import seq_aligner, utils, ptp_utils
 import math
 
 LOW_RESOURCE = False

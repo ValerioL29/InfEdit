@@ -1,9 +1,9 @@
 import inspect
 from typing import Any, Callable, Dict, List, Optional, Union
 
-import numpy as np
-import PIL
 import torch
+import numpy as np
+from PIL.Image import Image
 from packaging import version
 from transformers import CLIPImageProcessor, CLIPTextModel, CLIPTokenizer
 
@@ -19,20 +19,20 @@ from diffusers.pipelines.pipeline_utils import DiffusionPipeline
 from diffusers.pipelines.stable_diffusion import StableDiffusionPipelineOutput
 from diffusers.pipelines.stable_diffusion.safety_checker import StableDiffusionSafetyChecker
 
-
 logger = logging.get_logger(__name__)  # pylint: disable=invalid-name
 
 
 # Copied from diffusers.pipelines.stable_diffusion.pipeline_stable_diffusion_img2img.preprocess
 def preprocess(image):
-    deprecation_message = "The preprocess method is deprecated and will be removed in diffusers 1.0.0. Please use VaeImageProcessor.preprocess(...) instead"
+    deprecation_message = ("The preprocess method is deprecated and will be removed in diffusers 1.0.0. Please use "
+                           "VaeImageProcessor.preprocess(...) instead")
     deprecate("preprocess", "1.0.0", deprecation_message, standard_warn=False)
     if isinstance(image, torch.Tensor):
         return image
-    elif isinstance(image, PIL.Image.Image):
+    elif isinstance(image, Image):
         image = [image]
 
-    if isinstance(image[0], PIL.Image.Image):
+    if isinstance(image[0], Image):
         w, h = image[0].size
         w, h = (x - x % 8 for x in (w, h))  # resize to integer multiple of 8
 
@@ -52,7 +52,7 @@ def ddcm_sampler(scheduler, x_s, x_t, timestep, e_s, e_t, x_0, noise, eta, to_ne
         raise ValueError(
             "Number of inference steps is 'None', you need to run 'set_timesteps' after creating the scheduler"
         )
-    
+
     if scheduler.step_index is None:
         scheduler._init_step_index(timestep)
 
@@ -70,24 +70,24 @@ def ddcm_sampler(scheduler, x_s, x_t, timestep, e_s, e_t, x_0, noise, eta, to_ne
     beta_prod_t_prev = 1 - alpha_prod_t_prev
     variance = beta_prod_t_prev
     std_dev_t = eta * variance
-    noise = std_dev_t ** (0.5) * noise
+    noise = std_dev_t ** 0.5 * noise
 
-    e_c = (x_s - alpha_prod_t ** (0.5) * x_0) / (1 - alpha_prod_t) ** (0.5)
+    e_c = (x_s - alpha_prod_t ** 0.5 * x_0) / (1 - alpha_prod_t) ** 0.5
 
-    pred_x0 = x_0 + ((x_t - x_s) - beta_prod_t ** (0.5) * (e_t - e_s)) / alpha_prod_t ** (0.5)
+    pred_x0 = x_0 + ((x_t - x_s) - beta_prod_t ** 0.5 * (e_t - e_s)) / alpha_prod_t ** 0.5
     eps = (e_t - e_s) + e_c
-    dir_xt = (beta_prod_t_prev - std_dev_t) ** (0.5) * eps
+    dir_xt = (beta_prod_t_prev - std_dev_t) ** 0.5 * eps
 
     # Noise is not used for one-step sampling.
     if len(scheduler.timesteps) > 1:
-        prev_xt = alpha_prod_t_prev ** (0.5) * pred_x0 + dir_xt + noise
-        prev_xs = alpha_prod_t_prev ** (0.5) * x_0 + dir_xt + noise
+        prev_xt = alpha_prod_t_prev ** 0.5 * pred_x0 + dir_xt + noise
+        prev_xs = alpha_prod_t_prev ** 0.5 * x_0 + dir_xt + noise
     else:
         prev_xt = pred_x0
         prev_xs = x_0
-    
+
     if to_next:
-      scheduler._step_index += 1
+        scheduler._step_index += 1
     return prev_xs, prev_xt, pred_x0
 
 
@@ -96,15 +96,15 @@ class EditPipeline(DiffusionPipeline, TextualInversionLoaderMixin, LoraLoaderMix
     _optional_components = ["safety_checker", "feature_extractor"]
 
     def __init__(
-        self,
-        vae: AutoencoderKL,
-        text_encoder: CLIPTextModel,
-        tokenizer: CLIPTokenizer,
-        unet: UNet2DConditionModel,
-        scheduler: LCMScheduler,
-        safety_checker: StableDiffusionSafetyChecker,
-        feature_extractor: CLIPImageProcessor,
-        requires_safety_checker: bool = True,
+            self,
+            vae: AutoencoderKL,
+            text_encoder: CLIPTextModel,
+            tokenizer: CLIPTokenizer,
+            unet: UNet2DConditionModel,
+            scheduler: LCMScheduler,
+            safety_checker: StableDiffusionSafetyChecker,
+            feature_extractor: CLIPImageProcessor,
+            requires_safety_checker: bool = True,
     ):
         super().__init__()
 
@@ -173,17 +173,19 @@ class EditPipeline(DiffusionPipeline, TextualInversionLoaderMixin, LoraLoaderMix
 
     # Copied from diffusers.pipelines.stable_diffusion.pipeline_stable_diffusion.StableDiffusionPipeline._encode_prompt
     def _encode_prompt(
-        self,
-        prompt,
-        device,
-        num_images_per_prompt,
-        do_classifier_free_guidance,
-        negative_prompt=None,
-        prompt_embeds: Optional[torch.FloatTensor] = None,
-        negative_prompt_embeds: Optional[torch.FloatTensor] = None,
-        lora_scale: Optional[float] = None,
+            self,
+            prompt,
+            device,
+            num_images_per_prompt,
+            do_classifier_free_guidance,
+            negative_prompt=None,
+            prompt_embeds: Optional[torch.FloatTensor] = None,
+            negative_prompt_embeds: Optional[torch.FloatTensor] = None,
+            lora_scale: Optional[float] = None,
     ):
-        deprecation_message = "`_encode_prompt()` is deprecated and it will be removed in a future version. Use `encode_prompt()` instead. Also, be aware that the output format changed from a concatenated tensor to a tuple."
+        deprecation_message = ("`_encode_prompt()` is deprecated and it will be removed in a future version. Use "
+                               "`encode_prompt()` instead. Also, be aware that the output format changed from a "
+                               "concatenated tensor to a tuple.")
         deprecate("_encode_prompt()", "1.0.0", deprecation_message, standard_warn=False)
 
         prompt_embeds_tuple = self.encode_prompt(
@@ -204,15 +206,15 @@ class EditPipeline(DiffusionPipeline, TextualInversionLoaderMixin, LoraLoaderMix
 
     # Copied from diffusers.pipelines.stable_diffusion.pipeline_stable_diffusion.StableDiffusionPipeline.encode_prompt
     def encode_prompt(
-        self,
-        prompt,
-        device,
-        num_images_per_prompt,
-        do_classifier_free_guidance,
-        negative_prompt=None,
-        prompt_embeds: Optional[torch.FloatTensor] = None,
-        negative_prompt_embeds: Optional[torch.FloatTensor] = None,
-        lora_scale: Optional[float] = None,
+            self,
+            prompt,
+            device,
+            num_images_per_prompt,
+            do_classifier_free_guidance,
+            negative_prompt=None,
+            prompt_embeds: Optional[torch.FloatTensor] = None,
+            negative_prompt_embeds: Optional[torch.FloatTensor] = None,
+            lora_scale: Optional[float] = None,
     ):
         # set lora scale so that monkey patched LoRA
         # function of text encoder can correctly access it
@@ -230,7 +232,7 @@ class EditPipeline(DiffusionPipeline, TextualInversionLoaderMixin, LoraLoaderMix
             batch_size = prompt_embeds.shape[0]
 
         if prompt_embeds is None:
-            # textual inversion: procecss multi-vector tokens if necessary
+            # textual inversion: process multi-vector tokens if necessary
             if isinstance(self, TextualInversionLoaderMixin):
                 prompt = self.maybe_convert_prompt(prompt, self.tokenizer)
 
@@ -245,10 +247,10 @@ class EditPipeline(DiffusionPipeline, TextualInversionLoaderMixin, LoraLoaderMix
             untruncated_ids = self.tokenizer(prompt, padding="longest", return_tensors="pt").input_ids
 
             if untruncated_ids.shape[-1] >= text_input_ids.shape[-1] and not torch.equal(
-                text_input_ids, untruncated_ids
+                    text_input_ids, untruncated_ids
             ):
                 removed_text = self.tokenizer.batch_decode(
-                    untruncated_ids[:, self.tokenizer.model_max_length - 1 : -1]
+                    untruncated_ids[:, self.tokenizer.model_max_length - 1: -1]
                 )
                 logger.warning(
                     "The following part of your input was truncated because CLIP can only handle sequences up to"
@@ -338,13 +340,14 @@ class EditPipeline(DiffusionPipeline, TextualInversionLoaderMixin, LoraLoaderMix
 
     # Copied from diffusers.pipelines.stable_diffusion.pipeline_stable_diffusion_img2img.StableDiffusionImg2ImgPipeline.check_inputs
     def check_inputs(
-        self, prompt, strength, callback_steps, negative_prompt=None, prompt_embeds=None, negative_prompt_embeds=None
+            self, prompt, strength, callback_steps, negative_prompt=None, prompt_embeds=None,
+            negative_prompt_embeds=None
     ):
         if strength < 0 or strength > 1:
             raise ValueError(f"The value of strength should in [0.0, 1.0] but is {strength}")
 
         if (callback_steps is None) or (
-            callback_steps is not None and (not isinstance(callback_steps, int) or callback_steps <= 0)
+                callback_steps is not None and (not isinstance(callback_steps, int) or callback_steps <= 0)
         ):
             raise ValueError(
                 f"`callback_steps` has to be a positive integer but is {callback_steps} of type"
@@ -412,7 +415,8 @@ class EditPipeline(DiffusionPipeline, TextualInversionLoaderMixin, LoraLoaderMix
 
     # Copied from diffusers.pipelines.stable_diffusion.pipeline_stable_diffusion.StableDiffusionPipeline.decode_latents
     def decode_latents(self, latents):
-        deprecation_message = "The decode_latents method is deprecated and will be removed in 1.0.0. Please use VaeImageProcessor.postprocess(...) instead"
+        deprecation_message = ("The decode_latents method is deprecated and will be removed in 1.0.0. Please use "
+                               "VaeImageProcessor.postprocess(...) instead")
         deprecate("decode_latents", "1.0.0", deprecation_message, standard_warn=False)
 
         latents = 1 / self.vae.config.scaling_factor * latents
@@ -428,11 +432,12 @@ class EditPipeline(DiffusionPipeline, TextualInversionLoaderMixin, LoraLoaderMix
         init_timestep = min(int(num_inference_steps * strength), num_inference_steps)
 
         t_start = max(num_inference_steps - init_timestep, 0)
-        timesteps = self.scheduler.timesteps[t_start * self.scheduler.order :]
+        timesteps = self.scheduler.timesteps[t_start * self.scheduler.order:]
 
         return timesteps, num_inference_steps - t_start
 
-    def prepare_latents(self, image, timestep, batch_size, num_images_per_prompt, dtype, device, denoise_model, generator=None):
+    def prepare_latents(self, image, timestep, batch_size, num_images_per_prompt, dtype, device, denoise_model,
+                        generator=None):
         image = image.to(device=device, dtype=dtype)
 
         batch_size = image.shape[0]
@@ -449,7 +454,7 @@ class EditPipeline(DiffusionPipeline, TextualInversionLoaderMixin, LoraLoaderMix
 
             if isinstance(generator, list):
                 init_latents = [
-                    self.vae.encode(image[i : i + 1]).latent_dist.sample(generator[i]) for i in range(batch_size)
+                    self.vae.encode(image[i: i + 1]).latent_dist.sample(generator[i]) for i in range(batch_size)
                 ]
                 init_latents = torch.cat(init_latents, dim=0)
             else:
@@ -491,27 +496,27 @@ class EditPipeline(DiffusionPipeline, TextualInversionLoaderMixin, LoraLoaderMix
 
     @torch.no_grad()
     def __call__(
-        self,
-        prompt: Union[str, List[str]],
-        source_prompt: Union[str, List[str]],
-        negative_prompt: Union[str, List[str]]=None,
-        positive_prompt: Union[str, List[str]]=None,
-        image: PipelineImageInput = None,
-        strength: float = 0.8,
-        num_inference_steps: Optional[int] = 50,
-        original_inference_steps: Optional[int]  = 50,
-        guidance_scale: Optional[float] = 7.5,
-        source_guidance_scale: Optional[float] = 1,
-        num_images_per_prompt: Optional[int] = 1,
-        eta: Optional[float] = 1.0,
-        generator: Optional[Union[torch.Generator, List[torch.Generator]]] = None,
-        prompt_embeds: Optional[torch.FloatTensor] = None,
-        output_type: Optional[str] = "pil",
-        return_dict: bool = True,
-        callback: Optional[Callable[[int, int, torch.FloatTensor], None]] = None,
-        callback_steps: int = 1,
-        cross_attention_kwargs: Optional[Dict[str, Any]] = None,
-        denoise_model: Optional[bool] = True,
+            self,
+            prompt: Union[str, List[str]],
+            source_prompt: Union[str, List[str]],
+            negative_prompt: Union[str, List[str]] = None,
+            positive_prompt: Union[str, List[str]] = None,
+            image: PipelineImageInput = None,
+            strength: float = 0.8,
+            num_inference_steps: Optional[int] = 50,
+            original_inference_steps: Optional[int] = 50,
+            guidance_scale: Optional[float] = 7.5,
+            source_guidance_scale: Optional[float] = 1,
+            num_images_per_prompt: Optional[int] = 1,
+            eta: Optional[float] = 1.0,
+            generator: Optional[Union[torch.Generator, List[torch.Generator]]] = None,
+            prompt_embeds: Optional[torch.FloatTensor] = None,
+            output_type: Optional[str] = "pil",
+            return_dict: bool = True,
+            callback: Optional[Callable[[int, int, torch.FloatTensor], None]] = None,
+            callback_steps: int = 1,
+            cross_attention_kwargs: Optional[Dict[str, Any]] = None,
+            denoise_model: Optional[bool] = True,
     ):
         # 1. Check inputs
         self.check_inputs(prompt, strength, callback_steps)
@@ -554,15 +559,16 @@ class EditPipeline(DiffusionPipeline, TextualInversionLoaderMixin, LoraLoaderMix
 
         # 5. Prepare timesteps
         self.scheduler.set_timesteps(
-          num_inference_steps=num_inference_steps, 
-          device=device, 
-          original_inference_steps=original_inference_steps)
+            num_inference_steps=num_inference_steps,
+            device=device,
+            original_inference_steps=original_inference_steps)
         timesteps, num_inference_steps = self.get_timesteps(num_inference_steps, strength, device)
         latent_timestep = timesteps[:1].repeat(batch_size * num_images_per_prompt)
 
         # 6. Prepare latent variables
         latents, clean_latents = self.prepare_latents(
-            image, latent_timestep, batch_size, num_images_per_prompt, prompt_embeds.dtype, device, denoise_model, generator
+            image, latent_timestep, batch_size, num_images_per_prompt, prompt_embeds.dtype, device, denoise_model,
+            generator
         )
         source_latents = latents
         mutual_latents = latents
@@ -649,10 +655,10 @@ class EditPipeline(DiffusionPipeline, TextualInversionLoaderMixin, LoraLoaderMix
 
                     noise_pred = noise_pred_uncond + guidance_scale * (noise_pred_text - noise_pred_uncond)
                     source_noise_pred = source_noise_pred_uncond + source_guidance_scale * (
-                        source_noise_pred_text - source_noise_pred_uncond
+                            source_noise_pred_text - source_noise_pred_uncond
                     )
                     mutual_noise_pred = mutual_noise_pred_uncond + source_guidance_scale * (
-                        mutual_noise_pred_text - mutual_noise_pred_uncond
+                            mutual_noise_pred_text - mutual_noise_pred_uncond
                     )
 
                 else:
@@ -663,20 +669,20 @@ class EditPipeline(DiffusionPipeline, TextualInversionLoaderMixin, LoraLoaderMix
                 )
 
                 _, latents, pred_x0 = ddcm_sampler(
-                  self.scheduler, source_latents, 
-                  latents, t, 
-                  source_noise_pred, noise_pred, 
-                  clean_latents, noise=noise, 
-                  eta=eta, to_next=False, 
-                  **extra_step_kwargs
+                    self.scheduler, source_latents,
+                    latents, t,
+                    source_noise_pred, noise_pred,
+                    clean_latents, noise=noise,
+                    eta=eta, to_next=False,
+                    **extra_step_kwargs
                 )
-                
+
                 source_latents, mutual_latents, pred_xm = ddcm_sampler(
-                  self.scheduler, source_latents, 
-                  mutual_latents, t, 
-                  source_noise_pred, mutual_noise_pred, 
-                  clean_latents, noise=noise, 
-                  eta=eta, **extra_step_kwargs
+                    self.scheduler, source_latents,
+                    mutual_latents, t,
+                    source_noise_pred, mutual_noise_pred,
+                    clean_latents, noise=noise,
+                    eta=eta, **extra_step_kwargs
                 )
 
                 # call the callback, if provided
@@ -702,6 +708,6 @@ class EditPipeline(DiffusionPipeline, TextualInversionLoaderMixin, LoraLoaderMix
         image = self.image_processor.postprocess(image, output_type=output_type, do_denormalize=do_denormalize)
 
         if not return_dict:
-            return (image, has_nsfw_concept)
+            return image, has_nsfw_concept
 
         return StableDiffusionPipelineOutput(images=image, nsfw_content_detected=has_nsfw_concept)

@@ -7,7 +7,7 @@ Sihan Xu*, Yidong Huang*, Jiayi Pan, Ziqiao Ma, Joyce Chai
 University of Michigan, Ann Arbor  
 University of California, Berkeley
 
-![icon](infedit_gif.gif)
+![icon](assets/infedit_gif.gif)
 
 ## Setup
 This code was tested with python 3.9, [Pytorch](https://pytorch.org/) 2.2.1 using pretrained models through [huggingface / diffusers](https://github.com/huggingface/diffusers#readme). Specifically, we implemented our method over [LCM](https://huggingface.co/docs/diffusers/api/pipelines/latent_consistency_models) and [prompt2prompt](https://github.com/google/prompt-to-prompt). 

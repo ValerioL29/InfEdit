@@ -375,7 +375,7 @@ def inference(img, source_prompt, target_prompt,
 def replace_nsfw_images(results):
     for i in range(len(results.images)):
         if results.nsfw_content_detected[i]:
-            results.images[i] = Image.open("nsfw.png")
+            results.images[i] = Image.open("../assets/nsfw.png")
     return results.images[0]
 
 
